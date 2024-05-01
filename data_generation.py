@@ -23,12 +23,13 @@ for i in range(1,2*hours):
     for s in range(num_station - 1):
         demands_use[i, s] = section_demands[t_start+i, s + 1]/1800
         demands_use[i, s + num_station] = section_demands[t_start+i, s + num_station]/1800
-num_train = 270
+num_train = 220
 cut_time = 5400 # 4320 # time to start control
 Cmax = 400
 # Parameters
 tau_regular = 60
-h_regular = 180
+h_regular = 240
+t_roll = 300
 sigma = np.zeros([2*num_station])
 sigma[2*num_station-1] = 1
 sigma[num_station] = 1
@@ -199,9 +200,9 @@ uy = np.zeros([num_train,2*num_station,group])
 N_depot = np.zeros([num_station,group])
 depot = np.zeros([num_train,num_station,group])
 for g in range(group):
-    N_depot[0, g] = random.randint(45, 55)
+    N_depot[0, g] = random.randint(35, 45)
     depot[0, 0, g] = N_depot[0, g]
-    N_depot[num_station - 1, g] = random.randint(5, 15)
+    N_depot[num_station - 1, g] = random.randint(5, 10)
     depot[0, num_station - 1, g] = N_depot[num_station - 1, g]
     for s in range(2*num_station):
         for k in range(num_train):
@@ -212,8 +213,9 @@ for g in range(group):
 
 for g in range(group):
     for k in range(num_train-1):
-        if d_pre[k,0] < d_pre[0,2 * num_station - 1] + 240:
-            uy[k, 0, g] = random.choice([1, 2, 3, 4])
+        if d_pre[k,0] < d_pre[0,2 * num_station - 1] + t_roll:
+            # uy[k, 0, g] = random.choice([1, 2, 3, 4, 5, 6])
+            uy[k, 0, g] = 2
             ul[k, 0, g] = uy[k, 0, g]
             depot[k+1,0,g] = depot[k,0,g] - uy[k, 0, g]
             # depot[k+1,0,g] = N_depot[0,g] - sum(uy[j, 0, g] j in range(k+1))
@@ -225,7 +227,7 @@ for g in range(group):
             depot[k + 1, num_station-1, g] = depot[k, num_station-1, g] - (ul[k, num_station, g] - ul[k, num_station-1, g])
         else:
             for i in range(num_train-1):
-                if (d_pre[k,0] >= d_pre[i,2 * num_station - 1] + 240)&(d_pre[k,0] < d_pre[i+1,2 * num_station - 1] + 240):
+                if (d_pre[k,0] >= d_pre[i,2 * num_station - 1] + t_roll)&(d_pre[k,0] < d_pre[i+1,2 * num_station - 1] + t_roll):
                     temp1 = random.choice([1, 2, 3, 4])
                     temp2 = depot[k,0,g] - uy[i, 2 * num_station - 1, g]
                     uy[k, 0, g] = max(min(temp1,temp2),1)
@@ -260,4 +262,5 @@ training_sets = {'d_pre': d_pre, 'rho_whole': rho_whole, 'un': un, 'ul': ul, 'uy
 
 np.save('training_sets.npy', training_sets)
 print(depot[15:25,0,1:6])
-# print(d_pre)
+print(d_pre)
+print(E_regular)
