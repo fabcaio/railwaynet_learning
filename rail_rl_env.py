@@ -33,8 +33,8 @@ t_roll = 300
 """
 build action dictionary
 """
-position1 = [np.array([[0,0,0,0]]),np.array([[0,0,0,1]]),np.array([[0,0,1,0]]), np.array([[1,0,0,0]]),np.array([[1,0,0,1]]),np.array([[1,0,1,0]]), np.array([[1,1,0,0]]),np.array([[1,1,0,1]]),np.array([[1,1,1,0]])]
-position2 = [np.array([[0,0,0,0]]),np.array([[0,0,0,1]]),np.array([[0,0,1,0]]), np.array([[1,0,0,0]]),np.array([[1,0,0,1]]),np.array([[1,0,1,0]]), np.array([[1,1,0,0]]),np.array([[1,1,0,1]]),np.array([[1,1,1,0]])]
+position1 = [np.array([[0,0,0,0]]),np.array([[0,0,0,1]]),np.array([[0,0,1,0]]), np.array([[0,0,1,1]]), np.array([[1,0,0,0]]),np.array([[1,0,0,1]]),np.array([[1,0,1,0]]),np.array([[1,0,1,1]]), np.array([[1,1,0,0]]),np.array([[1,1,0,1]]),np.array([[1,1,1,0]]),np.array([[1,1,1,1]])]
+position2 = [np.array([[0,0,0,0]]),np.array([[0,0,0,1]]),np.array([[0,0,1,0]]), np.array([[0,0,1,1]]), np.array([[1,0,0,0]]),np.array([[1,0,0,1]]),np.array([[1,0,1,0]]),np.array([[1,0,1,1]]), np.array([[1,1,0,0]]),np.array([[1,1,0,1]]),np.array([[1,1,1,0]]),np.array([[1,1,1,1]])]
 combined_arrays = []
 for arr1 in position1:
     for arr2 in position2:
