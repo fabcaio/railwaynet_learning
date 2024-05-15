@@ -724,13 +724,13 @@ class RailNet():
                 self.l_real[round(self.start_index[s] + 2), s] = l_qp[2, s]
                 self.y_real[round(self.start_index[s] + 2), s] = y_qp[2, s]
             for k in range(num_train - 1):
-                if d_pre[k, 0] < d_pre[1, 2 * num_station - 1] + t_roll:
+                if d_pre[k, 0] < d_pre[2, 2 * num_station - 1] + t_roll:
                     self.depot_real[k + 1, 0] = self.depot_real[k, 0] - self.y_real[k, 0]
                     self.depot_real[k + 1, num_station - 1] = self.depot_real[k, num_station - 1] - (self.l_real[k, num_station] - self.l_real[k, num_station - 1])
                 else:
-                    for i in range(1,num_train - 1):
+                    for i in range(2,num_train - 1):
                         if (d_pre[k, 0] >= d_pre[i, 2 * num_station - 1] + t_roll) & (d_pre[k, 0] < d_pre[i + 1, 2 * num_station - 1] + t_roll):
-                            self.depot_real[k + 1, 0] = self.depot_real[k, 0] - self.y_real[k, 0] - self.y_real[i-1, 2 * num_station - 1]
+                            self.depot_real[k + 1, 0] = self.depot_real[k, 0] - self.y_real[k, 0] - self.y_real[i-2, 2 * num_station - 1]
                             self.depot_real[k + 1, num_station - 1] = self.depot_real[k, num_station - 1] - (self.l_real[k, num_station] - self.l_real[k, num_station - 1])
             self.n_real = np.zeros([num_train, 2 * num_station])
             n_depart_real = np.zeros([num_train, 2 * num_station])
