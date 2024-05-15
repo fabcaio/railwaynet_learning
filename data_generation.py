@@ -213,7 +213,7 @@ for g in range(group):
 
 for g in range(group):
     for k in range(num_train-1):
-        if d_pre[k,0] < d_pre[1,2 * num_station - 1] + t_roll:
+        if d_pre[k,0] < d_pre[2,2 * num_station - 1] + t_roll:
             # uy[k, 0, g] = random.choice([1, 2, 3, 4, 5, 6])
             uy[k, 0, g] = 2
             ul[k, 0, g] = uy[k, 0, g]
@@ -226,13 +226,13 @@ for g in range(group):
             ul[k, 2 * num_station - 1, g] = round(ul[k, 2 * num_station - 2, g] + uy[k, 2 * num_station - 1, g])
             depot[k + 1, num_station-1, g] = depot[k, num_station-1, g] - (ul[k, num_station, g] - ul[k, num_station-1, g])
         else:
-            for i in range(1,num_train-1):
+            for i in range(2,num_train-1):
                 if (d_pre[k,0] >= d_pre[i,2 * num_station - 1] + t_roll)&(d_pre[k,0] < d_pre[i+1,2 * num_station - 1] + t_roll):
                     temp1 = random.choice([1, 2, 3, 4])
-                    temp2 = depot[k,0,g] - uy[i-1, 2 * num_station - 1, g]
+                    temp2 = depot[k,0,g] - uy[i-2, 2 * num_station - 1, g]
                     uy[k, 0, g] = max(min(temp1,temp2),1)
                     ul[k, 0, g] = uy[k, 0, g]
-                    depot[k + 1, 0, g] = depot[k, 0, g] - uy[k, 0, g] - uy[i-1, 2 * num_station - 1, g]
+                    depot[k + 1, 0, g] = depot[k, 0, g] - uy[k, 0, g] - uy[i-2, 2 * num_station - 1, g]
                     for s in range(1, 2 * num_station - 1):
                         uy[k, s, g] = 0
                         ul[k, s, g] = round(ul[k, s - 1, g] + uy[k, s, g])
