@@ -138,9 +138,9 @@ def gurobi_minlp(control_trains,d_pre_cut,rho,state_a,state_d,state_r,state_l,st
         for q in range(2*num_station):
             if same[s,q] == 1:
                 if s == 0 | s == num_station:
-                    mdl.addConstrs(d[i,q]+t_roll-d[k,s]<=(1-xi[k,i,s,q])*(Mt-d[k,s]) for i in range(control_trains) for k in range(control_trains))
-                    mdl.addConstrs(d[i,q]+t_roll-d[k,s]>=epsilon+xi[k,i,s,q]*(mt-d[k,s]-epsilon) for i in range(control_trains) for k in range(control_trains))
-                    mdl.addConstrs(xi[k,i,s,q]<=xi[k,i-1,s,q] for i in range(1,control_trains) for k in range(control_trains))
+                    mdl.addConstrs(d[i,q]+t_roll-d[k,s]<=(1-xi[k,i,s,q])*(Mt-d[k,s]) for i in range(control_trains) for k in range(1,control_trains))
+                    mdl.addConstrs(d[i,q]+t_roll-d[k,s]>=epsilon+xi[k,i,s,q]*(mt-d[k,s]-epsilon) for i in range(control_trains) for k in range(1,control_trains))
+                    mdl.addConstrs(xi[k,i,s,q]<=xi[k,i-1,s,q] for i in range(1,control_trains) for k in range(1,control_trains))
                     mdl.addConstrs(xi[k,i,s,q]>=xi[k-1,i,s,q] for i in range(control_trains) for k in range(1,control_trains))
                     mdl.addConstrs(quicksum(xi[k,i,s,q]*y[i,q] for i in range(control_trains)) + quicksum(y[i,s] for i in range(2,k+1)) <= depot_real[min(s,q)] for k in range(2,control_trains-1))
     mdl.addConstrs(n[0,s]==state_n[s] for s in range(2*num_station))
@@ -330,9 +330,9 @@ def gurobi_qp(control_trains,d_pre_cut,rho,state_a,state_d,state_r,state_l,state
         for q in range(2*num_station):
             if same[s,q] == 1:
                 if s == 0 | s == num_station:
-                    mdl.addConstrs(d[i,q]+t_roll-d[k,s]<=(1-xi[k,i,s,q])*(Mt-d[k,s]) for i in range(control_trains) for k in range(control_trains))
-                    mdl.addConstrs(d[i,q]+t_roll-d[k,s]>=epsilon+xi[k,i,s,q]*(mt-d[k,s]-epsilon) for i in range(control_trains) for k in range(control_trains))
-                    mdl.addConstrs(xi[k,i,s,q]<=xi[k,i-1,s,q] for i in range(1,control_trains) for k in range(control_trains))
+                    mdl.addConstrs(d[i,q]+t_roll-d[k,s]<=(1-xi[k,i,s,q])*(Mt-d[k,s]) for i in range(control_trains) for k in range(1,control_trains))
+                    mdl.addConstrs(d[i,q]+t_roll-d[k,s]>=epsilon+xi[k,i,s,q]*(mt-d[k,s]-epsilon) for i in range(control_trains) for k in range(1,control_trains))
+                    mdl.addConstrs(xi[k,i,s,q]<=xi[k,i-1,s,q] for i in range(1,control_trains) for k in range(1,control_trains))
                     mdl.addConstrs(xi[k,i,s,q]>=xi[k-1,i,s,q] for i in range(control_trains) for k in range(1,control_trains))
                     mdl.addConstrs(quicksum(xi[k,i,s,q]*y[i,q] for i in range(control_trains)) + quicksum(y[i,s] for i in range(2,k+1)) <= depot_real[min(s,q)] for k in range(2,control_trains-1))
     mdl.addConstrs(n[0,s]==state_n[s] for s in range(2*num_station))
@@ -507,9 +507,9 @@ def gurobi_qp_presolve(control_trains,d_pre_cut,rho,state_a,state_d,state_r,stat
         for q in range(2*num_station):
             if same[s,q] == 1:
                 if s == 0 | s == num_station:
-                    mdl.addConstrs(d[i,q]+t_roll-d[k,s]<=(1-xi[k,i,s,q])*(Mt-d[k,s]) for i in range(control_trains) for k in range(control_trains))
-                    mdl.addConstrs(d[i,q]+t_roll-d[k,s]>=epsilon+xi[k,i,s,q]*(mt-d[k,s]-epsilon) for i in range(control_trains) for k in range(control_trains))
-                    # mdl.addConstrs(xi[k,i,s,q]<=xi[k,i-1,s,q] for i in range(1,control_trains) for k in range(control_trains))
+                    mdl.addConstrs(d[i,q]+t_roll-d[k,s]<=(1-xi[k,i,s,q])*(Mt-d[k,s]) for i in range(control_trains) for k in range(1,control_trains))
+                    mdl.addConstrs(d[i,q]+t_roll-d[k,s]>=epsilon+xi[k,i,s,q]*(mt-d[k,s]-epsilon) for i in range(control_trains) for k in range(1,control_trains))
+                    # mdl.addConstrs(xi[k,i,s,q]<=xi[k,i-1,s,q] for i in range(1,control_trains) for k in range(1,control_trains))
                     # mdl.addConstrs(xi[k,i,s,q]>=xi[k-1,i,s,q] for i in range(control_trains) for k in range(1,control_trains))
                     mdl.addConstrs(quicksum(xi[k,i,s,q]*y[i,q] for i in range(control_trains)) + quicksum(y[i,s] for i in range(2,k+1)) <= depot_real[min(s,q)] for k in range(2,control_trains-1))
     mdl.addConstrs(n[0,s]==state_n[s] for s in range(2*num_station))
@@ -724,13 +724,13 @@ class RailNet():
                 self.l_real[round(self.start_index[s] + 2), s] = l_qp[2, s]
                 self.y_real[round(self.start_index[s] + 2), s] = y_qp[2, s]
             for k in range(num_train - 1):
-                if d_pre[k, 0] < d_pre[0, 2 * num_station - 1] + t_roll:
+                if d_pre[k, 0] < d_pre[1, 2 * num_station - 1] + t_roll:
                     self.depot_real[k + 1, 0] = self.depot_real[k, 0] - self.y_real[k, 0]
                     self.depot_real[k + 1, num_station - 1] = self.depot_real[k, num_station - 1] - (self.l_real[k, num_station] - self.l_real[k, num_station - 1])
                 else:
-                    for i in range(num_train - 1):
+                    for i in range(1,num_train - 1):
                         if (d_pre[k, 0] >= d_pre[i, 2 * num_station - 1] + t_roll) & (d_pre[k, 0] < d_pre[i + 1, 2 * num_station - 1] + t_roll):
-                            self.depot_real[k + 1, 0] = self.depot_real[k, 0] - self.y_real[k, 0] - self.y_real[i, 2 * num_station - 1]
+                            self.depot_real[k + 1, 0] = self.depot_real[k, 0] - self.y_real[k, 0] - self.y_real[i-1, 2 * num_station - 1]
                             self.depot_real[k + 1, num_station - 1] = self.depot_real[k, num_station - 1] - (self.l_real[k, num_station] - self.l_real[k, num_station - 1])
             self.n_real = np.zeros([num_train, 2 * num_station])
             n_depart_real = np.zeros([num_train, 2 * num_station])
