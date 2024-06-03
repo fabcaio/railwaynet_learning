@@ -1,6 +1,7 @@
 from gurobipy import Model, GRB, quicksum
 import numpy as np
 import time
+import copy
 
 data_sets = np.load('training_sets.npy', allow_pickle=True).item()
 d_pre = data_sets['d_pre']
@@ -29,6 +30,13 @@ epsilon = 10 ** (-10)
 Mt = 1000000
 mt = -1000000
 t_roll = 300
+
+t_constant = 60
+h_min = 120
+tau_min = 30
+l_min = 1
+l_max = 4
+eta = 10 ** (-3)
 
 """
 build action dictionary
@@ -66,12 +74,10 @@ def gurobi_minlp(control_trains,d_pre_cut,rho,state_a,state_d,state_r,state_l,st
     function of gurobi optimization
     control_trains:         horizon
     """
-    epsilon = 10 ** (-10)
-    Mt = 1000000
-    mt = -1000000
     mdl = Model('OPT')
     mdl.Params.LogToConsole = 0
     mdl.Params.Threads = n_threads
+    # mdl.Params.timeLimit = 600
     # decision variables
     d = mdl.addVars(control_trains,2*num_station, vtype=GRB.CONTINUOUS,name='departuretime')
     a = mdl.addVars(control_trains,2*num_station, vtype=GRB.CONTINUOUS,name='arrivaltime')
@@ -153,7 +159,7 @@ def gurobi_minlp(control_trains,d_pre_cut,rho,state_a,state_d,state_r,state_l,st
     mdl.addConstrs(n_after[k,s]==n_before[k,s]-n_depart[k,s] for k in range(control_trains) for s in range(2*num_station))
 
     # print(depot_real[0])
-    start_time = time.time()
+    # start_time = time.time()
     # tune parameter of gurobi solver
     mdl.Params.MIPGap = 10 ** (-10)
     mdl.Params.Cuts = 2
@@ -162,8 +168,8 @@ def gurobi_minlp(control_trains,d_pre_cut,rho,state_a,state_d,state_r,state_l,st
     mdl.optimize()
     # mdl.remove(C1)
     # mdl.update()
-    end_time = time.time()
-    gurobi_runtime = end_time - start_time
+    # end_time = time.time()
+    # gurobi_runtime = end_time - start_time
     # print('gurobi runing time = %f seconds' % gurobi_runtime)
     a_values = np.zeros([control_trains, 2 * num_station])
     d_values = np.zeros([control_trains, 2 * num_station])
@@ -171,6 +177,11 @@ def gurobi_minlp(control_trains,d_pre_cut,rho,state_a,state_d,state_r,state_l,st
     l_values = np.zeros([control_trains, 2 * num_station])
     y_values = np.zeros([control_trains, 2 * num_station])
     delta_minlp = np.zeros([control_trains - 1, 8])
+    
+    n_values = np.zeros((control_trains, 2*num_station))
+    n_after_values = np.zeros((control_trains, 2*num_station))
+    sign_o_values = np.zeros((control_trains, 2*num_station))
+    
     if mdl.status == GRB.OPTIMAL:
         # Print the objective function value
         # print(f"Optimal Objective Value: {mdl.objVal}")
@@ -226,22 +237,25 @@ def gurobi_minlp(control_trains,d_pre_cut,rho,state_a,state_d,state_r,state_l,st
                     r_values[k, s] = r[k, s].x
                     l_values[k, s] = l[k, s].x
                     y_values[k, s] = y[k, s].x
+        n_values = np.array([v.X for v in n.values()]).reshape(control_trains, 2*num_station)
+        n_after_values = np.array([v.X for v in n_after.values()]).reshape(control_trains, 2*num_station)
+        sign_o_values = np.array([v.X for v in sign_o.values()]).reshape(control_trains, 2*num_station)
     # else:
-    #     print("Optimization did not converge to an optimal solution.")
+    #     print("Optimization did not converge to an optimal solution.") 
 
-    return a_values, d_values, r_values, l_values, y_values, delta_minlp, mdl
+
+    return a_values, d_values, r_values, l_values, y_values, delta_minlp, n_values, n_after_values, sign_o_values, mdl
 
 def gurobi_qp(control_trains,d_pre_cut,rho,state_a,state_d,state_r,state_l,state_y,state_n,depot_real,delta,
-              num_station,differ,sigma,same,t_constant,h_min,l_min,l_max,r_min,r_max,tau_min,E_regular,Cmax,eta):
+              num_station,differ,sigma,same,t_constant,h_min,l_min,l_max,r_min,r_max,tau_min,E_regular,Cmax,eta,n_threads):
     """
     function of gurobi optimization
     control_trains:         horizon
     """
-    epsilon = 10 ** (-10)
-    Mt = 1000000
-    mt = -1000000
     mdl = Model('OPT')
     mdl.Params.LogToConsole = 0
+    mdl.Params.Threads = n_threads
+    mdl.Params.timeLimit = 100
     # decision variables
     d = mdl.addVars(control_trains,2*num_station, vtype=GRB.CONTINUOUS,name='departuretime')
     a = mdl.addVars(control_trains,2*num_station, vtype=GRB.CONTINUOUS,name='arrivaltime')
@@ -362,6 +376,10 @@ def gurobi_qp(control_trains,d_pre_cut,rho,state_a,state_d,state_r,state_l,state
     r_values = np.zeros([control_trains, 2 * num_station])
     l_values = np.zeros([control_trains, 2 * num_station])
     y_values = np.zeros([control_trains, 2 * num_station])
+    
+    n_values = np.zeros((control_trains, 2*num_station))
+    n_after_values = np.zeros((control_trains, 2*num_station))
+    sign_o_values = np.zeros((control_trains, 2*num_station))
     if mdl.status == GRB.OPTIMAL:
         # Print the objective function value
         # print(f"Optimal Objective Value: {mdl.objVal}")
@@ -372,13 +390,17 @@ def gurobi_qp(control_trains,d_pre_cut,rho,state_a,state_d,state_r,state_l,state
                 r_values[k, s] = r[k, s].x
                 l_values[k, s] = l[k, s].x
                 y_values[k, s] = y[k, s].x
+                
+        n_values = np.array([v.X for v in n.values()]).reshape(control_trains, 2*num_station)
+        n_after_values = np.array([v.X for v in n_after.values()]).reshape(control_trains, 2*num_station)
+        sign_o_values = np.array([v.X for v in sign_o.values()]).reshape(control_trains, 2*num_station)
     # else:
     #     print("Optimization did not converge to an optimal solution.")
 
-    return a_values, d_values, r_values, l_values, y_values, mdl
+    return a_values, d_values, r_values, l_values, y_values, n_values, n_after_values, sign_o_values, mdl
 
 def gurobi_qp_presolve(control_trains,d_pre_cut,rho,state_a,state_d,state_r,state_l,state_y,state_n,depot_real,delta,
-              num_station,differ,sigma,same,t_constant,h_min,l_min,l_max,r_min,r_max,tau_min,E_regular,Cmax,eta):
+              num_station,differ,sigma,same,t_constant,h_min,l_min,l_max,r_min,r_max,tau_min,E_regular,Cmax,eta,n_threads):
     """
     function of gurobi optimization
     control_trains:         horizon
@@ -416,6 +438,8 @@ def gurobi_qp_presolve(control_trains,d_pre_cut,rho,state_a,state_d,state_r,stat
 
     mdl = Model('OPT')
     mdl.Params.LogToConsole = 0
+    mdl.Params.Threads = n_threads
+    mdl.Params.timeLimit = 100
     # decision variables
     d = mdl.addVars(control_trains,2*num_station, vtype=GRB.CONTINUOUS,name='departuretime')
     a = mdl.addVars(control_trains,2*num_station, vtype=GRB.CONTINUOUS,name='arrivaltime')
@@ -539,6 +563,9 @@ def gurobi_qp_presolve(control_trains,d_pre_cut,rho,state_a,state_d,state_r,stat
     r_values = np.zeros([control_trains, 2 * num_station])
     l_values = np.zeros([control_trains, 2 * num_station])
     y_values = np.zeros([control_trains, 2 * num_station])
+    
+    n_values = np.zeros((control_trains, 2*num_station))
+    n_after_values = np.zeros((control_trains, 2*num_station))
     if mdl.status == GRB.OPTIMAL:
         # Print the objective function value
         # print(f"Optimal Objective Value: {mdl.objVal}")
@@ -549,20 +576,28 @@ def gurobi_qp_presolve(control_trains,d_pre_cut,rho,state_a,state_d,state_r,stat
                 r_values[k, s] = r[k, s].x
         l_values = l
         y_values = y
+        n_values = np.array([v.X for v in n.values()]).reshape(control_trains, 2*num_station)
+        n_after_values = np.array([v.X for v in n_after.values()]).reshape(control_trains, 2*num_station)
     # else:
-        # print("Optimization did not converge to an optimal solution.")
+        # print("Optimization did not converge to an optimal solution.")    
 
-    return a_values, d_values, r_values, l_values, y_values, mdl
+    return a_values, d_values, r_values, l_values, y_values, n_values, n_after_values, sign_o, mdl
 
 def qp_feasible(mdl):
     """
     checks whether the gurobi mdl is feasible
     """
-    if mdl.status == 3 or mdl.status == 4 or mdl.status == 12:
-        feas = False
+    # if mdl.status == 3 or mdl.status == 4 or mdl.status == 12:
+    #     feas = False
+    #     return feas
+    # else:
+    #     feas = True
+    #     return feas
+    if mdl.status == 2:
+        feas = True
         return feas
     else:
-        feas = True
+        feas = False
         return feas
 
 def cost2rew2(cost, noctrl_cost):
@@ -600,14 +635,34 @@ class RailNet():
         self.idx_group = idx_group
 
     def copyEnv(self, env):
-        self.cntr = env.cntr
-        self.state_start = env.state_start
-        self.mode = env.mode
-        self.reward = env.reward
-        self.terminated = env.terminated
-        self.truncated = env.truncated
-        self.idx_cntr = env.idx_cntr
-        self.idx_group = env.idx_group
+        
+        # self.state_start = env.state_start
+        self.mode = copy.deepcopy(env.mode)
+        self.cntr = copy.deepcopy(env.cntr)    
+        self.terminated = copy.deepcopy(env.terminated)
+        self.truncated = copy.deepcopy(env.truncated)
+        self.idx_cntr = copy.deepcopy(env.idx_cntr)
+        self.idx_group = copy.deepcopy(env.idx_group)        
+        self.a_real = copy.deepcopy(env.a_real)
+        self.d_real = copy.deepcopy(env.d_real)
+        self.r_real = copy.deepcopy(env.r_real)
+        self.l_real = copy.deepcopy(env.l_real)
+        self.y_real = copy.deepcopy(env.y_real)
+        self.n_real = copy.deepcopy(env.n_real)
+        
+        self.depot_real = copy.deepcopy(env.depot_real)
+        self.start_index = copy.deepcopy(env.start_index)
+        self.state_rho = copy.deepcopy(env.state_rho)
+        self.d_pre_cut = copy.deepcopy(env.d_pre_cut)
+        self.d_pre_cut_old = copy.deepcopy(env.d_pre_cut_old)
+        
+        self.state_a = copy.deepcopy(env.state_a)
+        self.state_d = copy.deepcopy(env.state_d)
+        self.state_r = copy.deepcopy(env.state_r)
+        self.state_l = copy.deepcopy(env.state_l)
+        self.state_y = copy.deepcopy(env.state_y)
+        self.state_n = copy.deepcopy(env.state_n)
+        self.state_depot = copy.deepcopy(env.state_depot)
 
     def set_randState(self, d_pre, rho_whole, un, ul, uy, ua, ud, ur, depot, mode=np.array([[0, 0, 0, 0, 0, 0, 0, 0]])):
 
@@ -670,6 +725,8 @@ class RailNet():
         self.state_depot = np.zeros([num_station])
         for s in range(num_station):
             self.state_depot[s] = self.depot_real[round(self.start_index[s] + 2), s]
+            
+        self.d_pre_cut_old = self.d_pre_cut
 
     def build_delta_vector(self, list_action: list) -> np.array:
         # from list of actions builds a np.array with the stacked deltas for each time step of the prediction horizon
@@ -679,30 +736,24 @@ class RailNet():
 
         return delta
 
-    def step(self, list_action, d_pre, rho_whole, r_max, r_min, differ, Cmax, sigma, same, num_station,num_train, E_regular):
-
-        t_constant = 60
-        h_min = 120
-        tau_min = 30
-        l_min = 1
-        l_max = 4
-        eta = 10 ** (-3)
+    def step(self, list_action, d_pre, rho_whole, r_max, r_min, differ, Cmax, sigma, same, num_station,num_train, E_regular,n_threads, opt):
 
         '''objective value of the on_control cost'''
-        J_original = original(self.control_trains,self.d_pre_cut,self.state_rho,self.d_real,self.l_real,self.state_n,Cmax,eta,self.start_index)
-        # print(J_original)
+        # J_original = original(self.control_trains,self.d_pre_cut,self.state_rho,self.d_real,self.l_real,self.state_n,Cmax,eta,self.start_index)
+        
+        self.d_pre_cut_old = self.d_pre_cut # saves d_pre_cut
+        
+        if opt == "minlp":
+            a_qp, d_qp, r_qp, l_qp, y_qp, delta, n, n_after, sign_o, mdl = gurobi_minlp(self.control_trains, self.d_pre_cut, self.state_rho,
+                     self.state_a, self.state_d, self.state_r, self.state_l, self.state_y, self.state_n, self.state_depot,
+                     num_station, differ, sigma, same, t_constant, h_min, l_min, l_max, r_min, r_max, tau_min,
+                     E_regular, Cmax, eta, n_threads)
 
-        # a_minlp, d_minlp, r_minlp, l_minlp, y_minlp, delta_minlp, mdl_minlp = gurobi_minlp(self.control_trains, self.d_pre_cut, self.state_rho,
-        #              self.state_a, self.state_d, self.state_r, self.state_l, self.state_y, self.state_n, self.state_depot,
-        #              num_station, differ, sigma, same, t_constant, h_min, l_min, l_max, r_min, r_max, tau_min,
-        #              E_regular, Cmax, eta)
-
-        delta = self.build_delta_vector(list_action)
-        '''use delta generated by minlp to guribi_qp'''
-        # delta = delta_minlp
-        a_qp, d_qp, r_qp, l_qp, y_qp, mdl = gurobi_qp_presolve(self.control_trains,self.d_pre_cut,self.state_rho,
-                        self.state_a, self.state_d, self.state_r, self.state_l, self.state_y, self.state_n,self.state_depot,
-                        delta, num_station,differ,sigma,same,t_constant,h_min,l_min,l_max,r_min,r_max,tau_min,E_regular,Cmax,eta)
+        if opt == "qp":
+            delta = self.build_delta_vector(list_action)
+            a_qp, d_qp, r_qp, l_qp, y_qp, n, n_after, sign_o, mdl = gurobi_qp_presolve(self.control_trains, self.d_pre_cut, self.state_rho,
+                        self.state_a, self.state_d, self.state_r, self.state_l, self.state_y, self.state_n, self.state_depot,
+                        delta, num_station, differ, sigma, same, t_constant, h_min, l_min, l_max, r_min, r_max, tau_min, E_regular, Cmax, eta, n_threads)
 
         feas = qp_feasible(mdl)
 
@@ -715,7 +766,7 @@ class RailNet():
 
         else:
             # rew = cost2rew(mdl.ObjVal, lower_bound=-450, alpha=0.0015)
-            rew = cost2rew2(mdl.ObjVal, J_original)
+            # rew = cost2rew2(mdl.ObjVal, J_original)
             '''implement the first control input in MPC'''
             for s in range(2 * num_station):
                 self.a_real[round(self.start_index[s] + 2), s] = a_qp[2, s]
@@ -748,8 +799,9 @@ class RailNet():
                     self.n_real[k + 1, s] = self.n_real[k, s] + rho_whole[k + 1, s, self.idx_group] * (d_pre[k + 1, s] - d_pre[k, s]) - n_depart_real[k, s]
 
             # print(np.amax(self.n_real))
-            self.mode = action_dict[str(round(list_action[0]))]
-            self.reward = rew
+            # self.mode = action_dict[str(round(list_action[0]))]
+            # self.reward = rew
+            self.reward = 0
             self.cntr += 1
             self.idx_cntr += 1
             self.start_index += 1
@@ -789,6 +841,12 @@ class RailNet():
                     'objval': mdl.ObjVal,
                     'mdl': mdl,
                     }
-
-        return (self.state_rho, self.d_pre_cut, self.state_a, self.state_d, self.state_r, self.state_l, self.state_y,self.state_n, self.state_depot,
+            
+            self.n = n
+            self.n_after = n_after
+            self.d = d_qp
+            self.l = l_qp
+            self.sign_o = sign_o
+            
+        return (self.state_rho, self.d_pre_cut, self.state_a, self.state_d, self.state_r, self.state_l, self.state_y, self.state_n, self.state_depot,
                 self.reward, self.terminated, self.truncated, info)
