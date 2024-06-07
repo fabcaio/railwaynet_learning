@@ -7,6 +7,7 @@ data_sets = np.load('training_sets.npy', allow_pickle=True).item()
 d_pre = data_sets['d_pre']
 rho_whole = data_sets['rho_whole']
 un = data_sets['un']
+un_after = data_sets['un_after']
 ul = data_sets['ul']
 uy = data_sets['uy']
 ua = data_sets['ua']
@@ -614,6 +615,29 @@ def cost2rew2(cost, noctrl_cost):
 
     return rew
 
+def get_original_schedule(N, idx_group, start_index):
+    a = np.zeros((N, 2* num_station))
+    d = np.zeros((N, 2* num_station))
+    r = np.zeros((N, 2* num_station))
+    l = np.zeros((N, 2* num_station))
+    y = np.zeros((N, 2* num_station))
+    n = np.zeros((N, 2* num_station))
+    n_after = np.zeros((N, 2* num_station))
+
+    mdl = 0
+    sign_o = np.zeros((N, 2* num_station))
+
+    for s in range(2* num_station):
+        a[:, s] = ua[start_index[s]:start_index[s]+N, s, idx_group]
+        d[:, s] = ud[start_index[s]:start_index[s]+N, s, idx_group]
+        r[:, s] = ur[start_index[s]:start_index[s]+N, s, idx_group]
+        l[:, s] = ul[start_index[s]:start_index[s]+N, s, idx_group]
+        y[:, s] = uy[start_index[s]:start_index[s]+N, s, idx_group]
+        n[:, s] = un[start_index[s]:start_index[s]+N, s, idx_group]
+        n_after[:, s] = un_after[start_index[s]:start_index[s]+N, s, idx_group]
+        
+    return a, d, r, l, y, n, n_after, sign_o
+
 class RailNet():
     def __init__(self, control_trains, mode=np.array([[0, 0, 0, 0, 0, 0, 0, 0]])):
 
@@ -695,7 +719,7 @@ class RailNet():
                 self.depot_real[k, s] = depot[k, s, self.idx_group]
 
         '''cutting states for gurobi'''
-        self.start_index = np.zeros([2 * num_station])
+        self.start_index = np.zeros([2 * num_station], dtype=np.int32)
         self.start_index[0] = self.idx_cntr
         for s in range(1, 2 * num_station):
             self.start_index[s] = self.start_index[s - 1] - differ[s]
@@ -744,18 +768,45 @@ class RailNet():
         self.d_pre_cut_old = self.d_pre_cut # saves d_pre_cut
         
         if opt == "minlp":
-            a_qp, d_qp, r_qp, l_qp, y_qp, delta, n, n_after, sign_o, mdl = gurobi_minlp(self.control_trains, self.d_pre_cut, self.state_rho,
+            a, d, r, l, y, delta, n, n_after, sign_o, mdl = gurobi_minlp(self.control_trains, self.d_pre_cut, self.state_rho,
                      self.state_a, self.state_d, self.state_r, self.state_l, self.state_y, self.state_n, self.state_depot,
                      num_station, differ, sigma, same, t_constant, h_min, l_min, l_max, r_min, r_max, tau_min,
                      E_regular, Cmax, eta, n_threads)
 
         if opt == "qp":
             delta = self.build_delta_vector(list_action)
-            a_qp, d_qp, r_qp, l_qp, y_qp, n, n_after, sign_o, mdl = gurobi_qp_presolve(self.control_trains, self.d_pre_cut, self.state_rho,
+            a, d, r, l, y, n, n_after, sign_o, mdl = gurobi_qp_presolve(self.control_trains, self.d_pre_cut, self.state_rho,
                         self.state_a, self.state_d, self.state_r, self.state_l, self.state_y, self.state_n, self.state_depot,
                         delta, num_station, differ, sigma, same, t_constant, h_min, l_min, l_max, r_min, r_max, tau_min, E_regular, Cmax, eta, n_threads)
+            
+        if opt == 'original':
+            a = np.zeros((self.control_trains, 2* num_station))
+            d = np.zeros((self.control_trains, 2* num_station))
+            r = np.zeros((self.control_trains, 2* num_station))
+            l = np.zeros((self.control_trains, 2* num_station))
+            y = np.zeros((self.control_trains, 2* num_station))
+            n = np.zeros((self.control_trains, 2* num_station))
+            n_after = np.zeros((self.control_trains, 2* num_station))
+            
+            mdl = 0
+            sign_o = np.zeros((self.control_trains, 2* num_station))
 
-        feas = qp_feasible(mdl)
+            for s in range(2* num_station):
+                a[:, s] = ua[self.start_index[s]:self.start_index[s]+self.control_trains, s, self.idx_group]
+                d[:, s] = ud[self.start_index[s]:self.start_index[s]+self.control_trains, s, self.idx_group]
+                r[:, s] = ur[self.start_index[s]:self.start_index[s]+self.control_trains, s, self.idx_group]
+                l[:, s] = ul[self.start_index[s]:self.start_index[s]+self.control_trains, s, self.idx_group]
+                y[:, s] = uy[self.start_index[s]:self.start_index[s]+self.control_trains, s, self.idx_group]
+                n[:, s] = un[self.start_index[s]:self.start_index[s]+self.control_trains, s, self.idx_group]
+                n_after[:, s] = un_after[self.start_index[s]:self.start_index[s]+self.control_trains, s, self.idx_group]
+                
+            mdl_objval = 0
+        
+        if opt=='minlp' or opt=='qp':
+            feas = qp_feasible(mdl)
+        
+        if opt =='original':
+            feas = True
 
         if feas == False:
 
@@ -769,11 +820,11 @@ class RailNet():
             # rew = cost2rew2(mdl.ObjVal, J_original)
             '''implement the first control input in MPC'''
             for s in range(2 * num_station):
-                self.a_real[round(self.start_index[s] + 2), s] = a_qp[2, s]
-                self.r_real[round(self.start_index[s] + 2), s] = r_qp[2, s]
-                self.d_real[round(self.start_index[s] + 2), s] = d_qp[2, s]
-                self.l_real[round(self.start_index[s] + 2), s] = l_qp[2, s]
-                self.y_real[round(self.start_index[s] + 2), s] = y_qp[2, s]
+                self.a_real[round(self.start_index[s] + 2), s] = a[2, s]
+                self.r_real[round(self.start_index[s] + 2), s] = r[2, s]
+                self.d_real[round(self.start_index[s] + 2), s] = d[2, s]
+                self.l_real[round(self.start_index[s] + 2), s] = l[2, s]
+                self.y_real[round(self.start_index[s] + 2), s] = y[2, s]
             for k in range(num_train - 1):
                 if d_pre[k, 0] < d_pre[2, 2 * num_station - 1] + t_roll:
                     self.depot_real[k + 1, 0] = self.depot_real[k, 0] - self.y_real[k, 0]
@@ -836,16 +887,19 @@ class RailNet():
 
             if self.idx_cntr >= 210 - self.control_trains:
                 self.truncated = True
+                
+            mdl_objval = mdl.ObjVal
 
             info = {'feasible': feas,
-                    'objval': mdl.ObjVal,
+                    'objval': mdl_objval,
                     'mdl': mdl,
                     }
             
+            self.a = a
             self.n = n
             self.n_after = n_after
-            self.d = d_qp
-            self.l = l_qp
+            self.d = d
+            self.l = l
             self.sign_o = sign_o
             
         return (self.state_rho, self.d_pre_cut, self.state_a, self.state_d, self.state_r, self.state_l, self.state_y, self.state_n, self.state_depot,
