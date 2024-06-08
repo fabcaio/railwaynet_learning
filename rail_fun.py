@@ -152,8 +152,7 @@ def get_optimality_gap_cl(network, Env, Env2, N_control, N_iter, dict_min_max_st
         tmp_n_after = []
         tmp_stepcost = []   
         
-        Env.set_randState(d_pre, rho_whole, un, ul, uy, ua, ud, ur, depot)
-        Env.idx_cntr = np.random.randint(idx_cntr_min, idx_cntr_max)
+        Env.set_randState(d_pre, rho_whole, un, ul, uy, ua, ud, ur, depot, idx_cntr_min, idx_cntr_max)
         Env2.copyEnv(Env)
         
         while (Env.terminated or Env.truncated)==False and (Env2.terminated or Env2.truncated)==False:
@@ -235,8 +234,7 @@ def get_comparison(network, Env, N_control, N_iter, dict_min_max_state, idx_cntr
     cntr_infeasible = 0
     
     for i in range(N_iter):
-        Env.set_randState(d_pre, rho_whole, un, ul, uy, ua, ud, ur, depot)
-        Env.idx_cntr = np.random.randint(idx_cntr_min, idx_cntr_max)
+        Env.set_randState(d_pre, rho_whole, un, ul, uy, ua, ud, ur, depot, idx_cntr_min, idx_cntr_max)
 
         start_time = time.time()
         state = build_stacked_state(Env.state_n, Env.state_rho, Env.state_depot, Env.state_l, network.input_size, N_control, dict_min_max_state)

@@ -639,20 +639,18 @@ def get_original_schedule(N, idx_group, start_index):
     return a, d, r, l, y, n, n_after, sign_o
 
 class RailNet():
-    def __init__(self, control_trains, mode=np.array([[0, 0, 0, 0, 0, 0, 0, 0]])):
+    def __init__(self, control_trains):
 
         self.cntr = 0  # termination counter
         self.control_trains = control_trains
-        self.mode = mode
         self.reward = 0
         self.terminated = False
         self.truncated = False
         self.idx_cntr = 0
         self.idx_group = 0 # group index
 
-    def setState(self, idx_cntr, idx_group, mode=np.array([[0, 0, 0, 0, 0, 0, 0, 0]])):
+    def setState(self, idx_cntr, idx_group):
         self.cntr = 0
-        self.mode = mode
         self.terminated = False
         self.truncated = False
         self.idx_cntr = idx_cntr
@@ -661,7 +659,6 @@ class RailNet():
     def copyEnv(self, env):
         
         # self.state_start = env.state_start
-        self.mode = copy.deepcopy(env.mode)
         self.cntr = copy.deepcopy(env.cntr)    
         self.terminated = copy.deepcopy(env.terminated)
         self.truncated = copy.deepcopy(env.truncated)
@@ -688,17 +685,13 @@ class RailNet():
         self.state_n = copy.deepcopy(env.state_n)
         self.state_depot = copy.deepcopy(env.state_depot)
 
-    def set_randState(self, d_pre, rho_whole, un, ul, uy, ua, ud, ur, depot, mode=np.array([[0, 0, 0, 0, 0, 0, 0, 0]])):
+    def set_randState(self, d_pre, rho_whole, un, ul, uy, ua, ud, ur, depot, idx_cntr_min=15, idx_cntr_max=200):
 
-        i = np.random.randint(15, 210 - self.control_trains)  # equivalent for 1 year of data Ts=30m
-        g = np.random.randint(1000)
-
-        self.mode = mode
         self.cntr = 0
         self.terminated = False
         self.truncated = False
-        self.idx_cntr = i
-        self.idx_group = g
+        self.idx_cntr = np.random.randint(idx_cntr_min, idx_cntr_max) # time of the day
+        self.idx_group = np.random.randint(1000) # day
         self.a_real = np.zeros([num_train, 2 * num_station])
         self.d_real = np.zeros([num_train, 2 * num_station])
         self.r_real = np.zeros([num_train, 2 * num_station])
@@ -850,7 +843,6 @@ class RailNet():
                     self.n_real[k + 1, s] = self.n_real[k, s] + rho_whole[k + 1, s, self.idx_group] * (d_pre[k + 1, s] - d_pre[k, s]) - n_depart_real[k, s]
 
             # print(np.amax(self.n_real))
-            # self.mode = action_dict[str(round(list_action[0]))]
             # self.reward = rew
             self.reward = 0
             self.cntr += 1
