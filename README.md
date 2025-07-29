@@ -1,5 +1,4 @@
-# Learning-based model predictive control for passenger-oriented train rescheduling
-with flexible train composition
+# Learning-based model predictive control for passenger-oriented train rescheduling with flexible train composition
 
 Repository containing the code of the paper entitled “Learning-based model predictive control for passenger-oriented train rescheduling
 with flexible train composition”.
