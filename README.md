@@ -2,7 +2,7 @@
 
 Repository containing the data and code of the paper entitled “Learning-based model predictive control for passenger-oriented train rescheduling with flexible train composition” available as a preprint [here](https://arxiv.org/abs/2502.15544). Corresponds to Chapter 3 of the thesis (the part related to the results without state reduction).
 
-This repository only contains the Python scripts and notebooks. The full repository with the dataset is available as the file "chapter3.rar" (folder "without_state_reduction) [here](https://doi.org/10.4121/277b2054-94e1-4d6a-b16c-db448bd8c4c5).
+This repository only contains the Python scripts and notebooks. The full repository with the dataset is available as the file "chapter3.rar" (folder "without_state_reduction") [here](https://doi.org/10.4121/277b2054-94e1-4d6a-b16c-db448bd8c4c5).
 
 Acknowledgement: This research has received funding from the European Research Council (ERC) under the European Union’s Horizon 2020 research and innovation programme (Grant agreement No. 101018826 - CLariNet).
 # Setup    
